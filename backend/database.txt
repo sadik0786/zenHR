@@ -1,0 +1,126 @@
+-- =============================================
+-- ZenHR SaaS System - 100% COMPLETE Database Schema
+-- Compatible with: MSSQL (Primary), PostgreSQL (Minor syntax changes needed)
+-- =============================================
+
+-- 1. Subscription Plans
+CREATE TABLE SubscriptionPlans (
+    PlanID INT PRIMARY KEY IDENTITY(1,1),
+    PlanName NVARCHAR(100) NOT NULL, -- Basic, Professional, Enterprise
+    MaxEmployees INT DEFAULT 10,
+    Price DECIMAL(10, 2) DEFAULT 0.00,
+    IsActive BIT DEFAULT 1,
+    Features NVARCHAR(MAX) -- JSON or Comma separated features
+);
+
+-- 2. Companies Table (Multi-tenant Core)
+CREATE TABLE Companies (
+    CompanyID INT PRIMARY KEY IDENTITY(1,1),
+    CompanyName NVARCHAR(255) NOT NULL,
+    CompanyLogo NVARCHAR(MAX), -- URL for the logo
+    AdminName NVARCHAR(100),
+    AdminEmail NVARCHAR(255) UNIQUE NOT NULL,
+    AdminPassword NVARCHAR(255) NOT NULL,
+    SubscriptionStatus NVARCHAR(50) DEFAULT 'ACTIVE', 
+    PlanID INT FOREIGN KEY REFERENCES SubscriptionPlans(PlanID),
+    EmployeeCount INT DEFAULT 0,
+    Address NVARCHAR(MAX),
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    UpdatedAt DATETIME DEFAULT GETDATE()
+);
+
+-- 3. Role Master
+CREATE TABLE RoleMasterTrackifyApp (
+    RoleID INT PRIMARY KEY IDENTITY(1,1),
+    RoleName NVARCHAR(50) NOT NULL, -- superAdmin, admin, hr, manager, employee
+    IsActive BIT DEFAULT 1,
+    EntryTimeStamp DATETIME DEFAULT GETDATE()
+);
+
+-- 4. Users / Employees Table
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY IDENTITY(1,1),
+    CompanyID INT FOREIGN KEY REFERENCES Companies(CompanyID),
+    EmployeeCode NVARCHAR(50) UNIQUE, -- e.g., ZEN001
+    Name NVARCHAR(100) NOT NULL,
+    Email NVARCHAR(255) NOT NULL,
+    Password NVARCHAR(255) NOT NULL,
+    Phone NVARCHAR(20),
+    Role NVARCHAR(50), -- superAdmin, admin, hr, manager, employee
+    IsActive BIT DEFAULT 1,
+    ProfilePic NVARCHAR(MAX),
+    JoinDate DATE DEFAULT GETDATE(),
+    Designation NVARCHAR(100),
+    Department NVARCHAR(100),
+    CreatedAt DATETIME DEFAULT GETDATE()
+);
+
+-- 5. Attendance Table (Crucial for HRMS)
+CREATE TABLE Attendance (
+    AttendanceID INT PRIMARY KEY IDENTITY(1,1),
+    CompanyID INT FOREIGN KEY REFERENCES Companies(CompanyID),
+    UserID INT FOREIGN KEY REFERENCES Users(UserID),
+    LogDate DATE DEFAULT GETDATE(),
+    ClockIn DATETIME,
+    ClockOut DATETIME,
+    Status NVARCHAR(50), -- Present, Late, Half-Day
+    TotalHours DECIMAL(5, 2),
+    Location NVARCHAR(255) -- Optional: GPS location or IP
+);
+
+-- 6. Leave Types (Per Company Configuration)
+CREATE TABLE LeaveTypes (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    CompanyID INT FOREIGN KEY REFERENCES Companies(CompanyID),
+    LeaveName NVARCHAR(100) NOT NULL, 
+    LeaveCount DECIMAL(5, 2) NOT NULL, -- Max allowed in a year
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME DEFAULT GETDATE()
+);
+
+-- 7. Leave Requests
+CREATE TABLE LeaveRequests (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    CompanyID INT FOREIGN KEY REFERENCES Companies(CompanyID),
+    EmployeeID INT FOREIGN KEY REFERENCES Users(UserID),
+    LeaveTypeID INT FOREIGN KEY REFERENCES LeaveTypes(ID),
+    FromDate DATE NOT NULL,
+    ToDate DATE NOT NULL,
+    TotalDays DECIMAL(5, 2) NOT NULL,
+    SessionType NVARCHAR(50), -- Full Day, First Half, Second Half
+    Reason NVARCHAR(MAX),
+    Status NVARCHAR(50) DEFAULT 'PENDING', -- PENDING, APPROVED, REJECTED
+    RejectReason NVARCHAR(MAX),
+    ApproverID INT, 
+    AppliedAt DATETIME DEFAULT GETDATE(),
+    UpdatedAt DATETIME DEFAULT GETDATE()
+);
+
+-- 8. Projects Table
+CREATE TABLE ProjectTrackifyApp (
+    ProjectID INT PRIMARY KEY IDENTITY(1,1),
+    CompanyID INT FOREIGN KEY REFERENCES Companies(CompanyID),
+    ProjectName NVARCHAR(255) NOT NULL,
+    IsActive BIT DEFAULT 1,
+    EntryTimeStamp DATETIME DEFAULT GETDATE()
+);
+
+-- 9. Sub-Projects Table
+CREATE TABLE SubProjectTrackifyApp (
+    SubProjectID INT PRIMARY KEY IDENTITY(1,1),
+    ProjectID INT FOREIGN KEY REFERENCES ProjectTrackifyApp(ProjectID),
+    SubProjectName NVARCHAR(255) NOT NULL,
+    IsActive BIT DEFAULT 1
+);
+
+-- =============================================
+-- Initial Data Seeding (DO NOT MISS)
+-- =============================================
+
+-- Seed Plans
+INSERT INTO SubscriptionPlans (PlanName, MaxEmployees, Price) VALUES ('Free Trial', 5, 0.00);
+INSERT INTO SubscriptionPlans (PlanName, MaxEmployees, Price) VALUES ('Basic', 20, 19.99);
+INSERT INTO SubscriptionPlans (PlanName, MaxEmployees, Price) VALUES ('Enterprise', 999, 99.99);
+
+-- Seed Roles
+INSERT INTO RoleMasterTrackifyApp (RoleName) VALUES ('superAdmin'), ('admin'), ('hr'), ('manager'), ('employee');

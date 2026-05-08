@@ -1,0 +1,51 @@
+# Misc
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.history/
+.svn/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+
+# Flutter generated
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# Symbolication
+app.*.symbols
+app.*.map.json
+
+# Android
+/android/app/debug
+/android/app/profile
+/android/app/release
+/android/app/.cxx
+
+# iOS build
+/ios/build/
+
+# Environment files
+.env
+.env.*
+
+# Node
+node_modules/
+
+# Optional: lock file
+# Remove comment if team uses same dependency versions
+# pubspec.lock
