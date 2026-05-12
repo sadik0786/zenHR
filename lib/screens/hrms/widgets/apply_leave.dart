@@ -33,39 +33,34 @@ class ApplyLeave extends StatelessWidget {
                   if (selected != null) ...[
                     _leaveCard(
                       context,
-                      leaveName: selected.leaveName ?? "Selected Leave",
-                      total: selected.leaveCount?.toDouble() ?? 0,
-                      used: leaveController.calculateUsedLeaves(selected.leaveName),
-                      pendingDays: leaveController.calculatePendingLeaves(selected.leaveName),
+                      leaveName: selected["leave_name"] ?? "Selected Leave",
+                      total: (selected["leave_count"] ?? 0).toDouble(),
+                      used: leaveController.calculateUsedLeaves(selected["leave_name"]),
+                      pendingDays: leaveController.calculatePendingLeaves(selected["leave_name"]),
                       selectedDays: leaveController.calculateLeaveDays(),
                     ),
-                    SizedBox(height: 30.h),
                   ],
-                  Text(
-                    "Request Time Off",
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 10.h),
                   Form(
                     key: leaveController.applyLeaveFormKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CustomDropdownField<int>(
+                        CustomDropdownField<dynamic>(
                           labelText: "Leave Category",
                           isRequired: true,
                           hintText: "Select leave type",
                           prefixIcon: Icons.category_rounded,
                           items: leaveController.leaveTypes.map((p) {
-                            return {"id": p.id ?? 0, "name": p.leaveName ?? ""};
+                            return {"id": p["id"], "name": p["leave_name"] ?? ""};
                           }).toList(),
                           valueKey: "id",
                           labelKey: "name",
                           value: leaveController.selectedLeaveTypeId.value,
                           isEnabled: true,
-                          onChanged: leaveController.onLeaveTypeChanged,
+                          onChanged: (val) => leaveController.selectedLeaveTypeId.value = val,
                         ),
-                        SizedBox(height: 15.h),
+                        SizedBox(height: 10.h),
                         CustomDateField(
                           labelText: "Start Date",
                           isRequired: true,
@@ -74,7 +69,7 @@ class ApplyLeave extends StatelessWidget {
                           prefixIcon: Icons.calendar_today_rounded,
                           onTap: () => leaveController.pickDate(context, true),
                         ),
-                        SizedBox(height: 15.h),
+                        SizedBox(height: 10.h),
                         CustomDateField(
                           labelText: "End Date",
                           isRequired: true,
@@ -83,8 +78,8 @@ class ApplyLeave extends StatelessWidget {
                           prefixIcon: Icons.calendar_today_rounded,
                           onTap: () => leaveController.pickDate(context, false),
                         ),
-                        SizedBox(height: 15.h),
-                        CustomDropdownField<int>(
+                        SizedBox(height: 10.h),
+                        CustomDropdownField<dynamic>(
                           labelText: "Session Preference",
                           isRequired: true,
                           hintText: "Select session",
@@ -100,7 +95,7 @@ class ApplyLeave extends StatelessWidget {
                             }
                           },
                         ),
-                        SizedBox(height: 15.h),
+                        SizedBox(height: 10.h),
                         CustomTextField(
                           labelText: "Reason for Absence",
                           hintText: "Enter your reason here...",
@@ -108,7 +103,7 @@ class ApplyLeave extends StatelessWidget {
                           prefixIcon: Icons.edit_note_rounded,
                           maxLines: 2,
                         ),
-                        SizedBox(height: 35.h),
+                        SizedBox(height: 20.h),
                         CustomButton(
                           icon: Icons.send_rounded,
                           text: leaveController.isLoading.value ? "Processing..." : "Submit Leave Request",
@@ -122,7 +117,7 @@ class ApplyLeave extends StatelessWidget {
                 ],
               );
             }),
-            SizedBox(height: 50.h),
+            SizedBox(height: 30.h),
           ],
         ),
       ),
@@ -142,7 +137,7 @@ class ApplyLeave extends StatelessWidget {
     final balance = total - used;
 
     return Container(
-      padding: EdgeInsets.all(20.w),
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h),
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20.r),
@@ -163,7 +158,7 @@ class ApplyLeave extends StatelessWidget {
             children: [
               Text(
                 leaveName,
-                style: theme.textTheme.titleLarge?.copyWith(
+                style: theme.textTheme.titleMedium?.copyWith(
                   color: isDark ? ThemeClass.zenAccent : ThemeClass.zenPrimary,
                   fontWeight: FontWeight.w900,
                 ),
@@ -186,7 +181,7 @@ class ApplyLeave extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -196,16 +191,16 @@ class ApplyLeave extends StatelessWidget {
             ],
           ),
           if (selectedDays > 0) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 5),
             Divider(color: theme.dividerColor.withOpacity(0.1)),
-            const SizedBox(height: 15),
+            const SizedBox(height: 5),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text("Requested Duration", style: theme.textTheme.labelMedium),
                 Text(
                   "$selectedDays Days",
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  style: theme.textTheme.titleMedium?.copyWith(
                     color: ThemeClass.zenAccent,
                     fontWeight: FontWeight.w900,
                   ),
@@ -228,10 +223,10 @@ class ApplyLeave extends StatelessWidget {
     return Column(
       children: [
         Text(label, style: theme.textTheme.labelMedium),
-        const SizedBox(height: 6),
+        const SizedBox(height: 3),
         Text(
           value,
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w900,
             color: isHighlight ? Colors.greenAccent : null,
           ),

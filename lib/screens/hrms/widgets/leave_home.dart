@@ -25,7 +25,7 @@ class LeaveHome extends StatelessWidget {
               Text("My Leave Requests", style: Theme.of(context).textTheme.titleLarge),
               Obx(
                 () => Text(
-                  "${controller.appliedLeaves.length} Total",
+                  "${controller.myLeavesRequest.length} Total",
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -34,20 +34,20 @@ class LeaveHome extends StatelessWidget {
           SizedBox(height: 20.h),
           Expanded(
             child: Obx(() {
-              if (controller.isLoading.value && controller.appliedLeaves.isEmpty) {
-                return PageLoader();
+              if (controller.isLoading.value && controller.myLeavesRequest.isEmpty) {
+                return const PageLoader();
               }
 
-              if (controller.appliedLeaves.isEmpty) {
+              if (controller.myLeavesRequest.isEmpty) {
                 return Center(child: NoTasksWidget(message: "No Leave Requests"));
               }
 
               return ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: 0.w),
-                itemCount: controller.appliedLeaves.length,
+                padding: EdgeInsets.zero,
+                itemCount: controller.myLeavesRequest.length,
                 separatorBuilder: (context, index) => SizedBox(height: 12.h),
                 itemBuilder: (context, index) {
-                  final leave = controller.appliedLeaves[index];
+                  final leave = controller.myLeavesRequest[index];
                   return _leaveHistoryCard(context, leave);
                 },
               );
@@ -60,7 +60,9 @@ class LeaveHome extends StatelessWidget {
 
   Widget _leaveHistoryCard(BuildContext context, dynamic leave) {
     Color statusColor;
-    switch (leave.status.toString().toUpperCase()) {
+    final status = (leave["status"] ?? "PENDING").toString().toUpperCase();
+    
+    switch (status) {
       case 'APPROVED':
         statusColor = Colors.greenAccent;
         break;
@@ -86,13 +88,11 @@ class LeaveHome extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      leave.leaveTypeName,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      leave["leave_types"]?["leave_name"] ?? "Leave",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      "${CommonFn.formatDate(leave.fromDate)} to ${CommonFn.formatDate(leave.toDate)}",
+                      "${CommonFn.formatDate(leave["from_date"])} to ${CommonFn.formatDate(leave["to_date"])}",
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -105,7 +105,7 @@ class LeaveHome extends StatelessWidget {
                     border: Border.all(color: statusColor.withOpacity(0.5)),
                   ),
                   child: Text(
-                    leave.status,
+                    status,
                     style: TextStyle(
                       color: statusColor,
                       fontSize: 10.sp,
@@ -119,56 +119,46 @@ class LeaveHome extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _infoItem(context, "Duration", "${leave.totalDays} Days"),
-                _infoItem(context, "Session", leave.sessionDay == 1 ? "Full Day" : "Half Day"),
-                _infoItem(context, "Applied on", CommonFn.formatDate(leave.fromDate)),
+                _infoItem(context, "Duration", "${leave["total_days"]} Days"),
+                _infoItem(context, "Session", leave["session_type"] ?? "Full Day"),
+                _infoItem(context, "Applied on", CommonFn.formatDate(leave["applied_at"])),
               ],
             ),
-            if (leave.reason != null && leave.reason!.isNotEmpty) ...[
+            if (leave["reason"] != null && leave["reason"].toString().isNotEmpty) ...[
               const Divider(color: Colors.white10, height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text("Reason", style: Theme.of(context).textTheme.bodySmall),
                   Text(
-                    leave.reason!,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    leave["reason"],
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
             ],
-            if (leave.status.toString().toUpperCase() == "REJECTED" &&
-                leave.rejectReason != null &&
-                leave.rejectReason!.isNotEmpty) ...[
+            if (status == "REJECTED" && leave["reject_reason"] != null) ...[
               const Divider(color: Colors.white10, height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text("Reject Reason", style: Theme.of(context).textTheme.bodySmall),
-                  Text(
-                    leave.rejectReason!,
-                    style: Theme.of(context).textTheme.bodyMedium),
+                  Text(leave["reject_reason"], style: Theme.of(context).textTheme.bodyMedium),
                 ],
               ),
             ],
-            if (leave.approverName != null && leave.approverName!.isNotEmpty) ...[
+            if (leave["approver"]?["name"] != null) ...[
               const Divider(color: Colors.white10, height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    leave.status.toString().toUpperCase() == "REJECTED"
-                        ? "Rejected by"
-                        : "Approved by",
+                    status == "REJECTED" ? "Rejected by" : "Approved by",
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   Text(
-                    leave.approverName!,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    leave["approver"]["name"],
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                   ),
                 ],
               ),

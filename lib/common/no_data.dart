@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class NoTasksWidget extends StatefulWidget {
-  final String message; 
+  final String message;
+  final String? desc;
 
   const NoTasksWidget({
     super.key,
-    this.message = "No tasks found",
+    this.message = "No Data Found", this.desc,
   });
 
   @override
@@ -157,10 +158,13 @@ class _NoTasksWidgetState extends State<NoTasksWidget> with TickerProviderStateM
                   : 0.0;
               return Transform.rotate(angle: wiggle, child: child);
             },
-            child: Text(
-              widget.message,
-              style: Theme.of(context).textTheme.titleLarge,
-              // style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            child: Column(
+              children: [
+                Text(widget.message, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 10),
+                if (widget.desc != null)
+                  Text(widget.desc!, style: Theme.of(context).textTheme.titleSmall),
+              ],
             ),
           ),
         ],

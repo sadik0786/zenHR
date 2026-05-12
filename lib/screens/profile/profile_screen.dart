@@ -53,14 +53,14 @@ class ProfileScreen extends StatelessWidget {
                         backgroundColor: ThemeClass.primaryGreen,
                         backgroundImage: controller.localAvatar.value != null
                             ? FileImage(controller.localAvatar.value!)
-                            : (controller.avatarUrl.value != null
-                                  ? NetworkImage(controller.avatarUrl.value!)
+                            : (controller.currentUser.value?.avatarUrl != null
+                                  ? NetworkImage(controller.currentUser.value!.avatarUrl!)
                                   : null),
                         child:
                             (controller.localAvatar.value == null &&
-                                controller.avatarUrl.value == null)
+                                controller.currentUser.value?.avatarUrl == null)
                             ? Text(
-                                CommonFn.getInitials(controller.userName.value),
+                                CommonFn.getInitials(controller.currentUser.value?.name ?? "U"),
                                 style: Theme.of(
                                   context,
                                 ).textTheme.bodySmall!.copyWith(fontSize: 40.sp),
@@ -91,8 +91,8 @@ class ProfileScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildInfoItem(context, "Name", controller.userName.value),
-                            _buildInfoItem(context, "Email", controller.email.value),
+                            _buildInfoItem(context, "Name", controller.currentUser.value?.name),
+                            _buildInfoItem(context, "Email", controller.currentUser.value?.email),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -100,7 +100,7 @@ class ProfileScreen extends StatelessWidget {
                                   child: _buildInfoItem(
                                     context,
                                     "Mobile",
-                                    controller.mobile.value,
+                                    controller.currentUser.value?.phone,
                                     isMobile: true,
                                   ),
                                 ),
@@ -154,7 +154,7 @@ class ProfileScreen extends StatelessWidget {
                               backgroundColor: ThemeClass.errorColor,
                               icon: Icons.logout,
                               text: "Logout",
-                              onPressed: controller.logOut,
+                              onPressed: controller.handleLogout,
                             ),
                           ],
                         ),
@@ -171,7 +171,7 @@ class ProfileScreen extends StatelessWidget {
 
   void _showUpdateMobileBottomSheet(BuildContext context, UserController controller) {
     final TextEditingController textController = TextEditingController(
-      text: controller.mobile.value,
+      text: controller.currentUser.value?.phone ?? "",
     );
     final formKey = GlobalKey<FormState>();
 

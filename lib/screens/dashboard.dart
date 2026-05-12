@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:zen_hr/controllers/user/user_controller.dart';
-import 'package:zen_hr/core/app_constants.dart';
 import 'package:zen_hr/core/routes.dart';
 import 'package:zen_hr/widgets/custom_appbar.dart';
 
@@ -14,78 +13,97 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  final UserController userController = Get.find<UserController>();
-
   @override
   void initState() {
     super.initState();
   }
 
+  List<_DashboardItem> _getMenuItems(UserController userController) {
+    final String role = (userController.currentUser.value?.role ?? "").toLowerCase();
 
+    List<_DashboardItem> items = [];
 
-  List<_DashboardItem> _getMenuItems() {
-    final String role = userController.role.value.toLowerCase();
-
-    List<_DashboardItem> items = [
+    // Common Menu
+    items.add(
       _DashboardItem(
         title: 'My Profile',
-        icon: Icons.account_circle,
-        gradient: [Colors.purpleAccent.shade200, Colors.purpleAccent.shade100],
+        icon: Icons.person_pin_rounded,
+        gradient: [Colors.purple.shade400, Colors.purple.shade700],
         onTap: () => Get.toNamed(Routes.profileScreen),
       ),
-    ];
+    );
 
-    if (role == AppConstants.roleCeo || role == AppConstants.roleHr) {
+    // CEO & HR Menu
+    if (role == 'ceo' || role == 'hr') {
       items.add(
         _DashboardItem(
-          title: 'Employees',
-          icon: Icons.people,
-          gradient: [Colors.greenAccent.shade400, Colors.greenAccent.shade200],
+          title: 'Add Employees',
+          icon: Icons.people_alt_rounded,
+          gradient: [Colors.blue.shade400, Colors.blue.shade700],
+          onTap: () => Get.toNamed(Routes.registerScreen),
+        ),
+      );
+      items.add(
+        _DashboardItem(
+          title: 'Employee List',
+          icon: Icons.people_outline_rounded,
+          gradient: [Colors.green.shade400, Colors.green.shade700],
           onTap: () => Get.toNamed(Routes.employeeScreen),
         ),
       );
       items.add(
         _DashboardItem(
-          title: 'Add Employee',
-          icon: Icons.person_add,
-          gradient: [Colors.lightBlueAccent.shade400, Colors.lightBlueAccent.shade200],
-          onTap: () => Get.toNamed(Routes.registerScreen),
+          title: 'Attendance Logs',
+          icon: Icons.fact_check_rounded,
+          gradient: [Colors.orange.shade400, Colors.orange.shade700],
+          onTap: () => Get.toNamed(Routes.adminAttendance),
         ),
       );
     }
 
+    // Employee Menus
     items.add(
-        _DashboardItem(
-          title: 'Manage Leave',
-          icon: Icons.manage_history,
-          gradient: [Colors.orangeAccent.shade400, Colors.orangeAccent.shade200],
-          onTap: () => Get.toNamed(Routes.hrmsDashboard),
-        ),
+      _DashboardItem(
+        title: 'My Attendance',
+        icon: Icons.access_time_filled_rounded,
+        gradient: [Colors.pink.shade400, Colors.pink.shade700],
+        onTap: () => Get.toNamed(Routes.attendanceScreen),
+      ),
     );
-
+    items.add(
+      _DashboardItem(
+        title: 'Leaves',
+        icon: Icons.event_available_rounded,
+        gradient: [Colors.indigo.shade400, Colors.indigo.shade700],
+        onTap: () => Get.toNamed(Routes.hrmsDashboard),
+      ),
+    );
+    
     return items;
   }
 
   @override
   Widget build(BuildContext context) {
+    final UserController userController = Get.find<UserController>();
+
     return Obx(() {
-      final items = _getMenuItems();
+      final items = _getMenuItems(userController);
 
       return Scaffold(
         appBar: CommonAppBar(
-          title: "ZenHR",
-          userName: userController.userName.value,
-          onLogout: userController.logOut,
+          title: "Dashboard",
+          userName: userController.currentUser.value?.name ?? "User",
+          onLogout: userController.handleLogout,
         ),
         body: SafeArea(
           child: Container(
             decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+              padding: EdgeInsets.all(20),
               child: GridView.count(
                 crossAxisCount: 2,
                 mainAxisSpacing: 20.h,
-                crossAxisSpacing: 30.w,
+                crossAxisSpacing: 40.w,
                 children: items.map((item) => _GlassCard(item: item)).toList(),
               ),
             ),
@@ -145,7 +163,7 @@ class _GlassCardState extends State<_GlassCard> with SingleTickerProviderStateMi
             borderRadius: BorderRadius.circular(20.r),
             boxShadow: [
               BoxShadow(
-                color: widget.item.gradient.last.withValues(alpha: 0.4),
+                color: widget.item.gradient.last.withOpacity(0.4),
                 blurRadius: 12.r,
                 offset: Offset(0, 6.h),
               ),
@@ -155,13 +173,13 @@ class _GlassCardState extends State<_GlassCard> with SingleTickerProviderStateMi
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(widget.item.icon, size: 50.sp, color: Colors.white),
-                SizedBox(height: 14.h),
+                Icon(widget.item.icon, size: 45.sp, color: Colors.white),
+                SizedBox(height: 10.h),
                 Text(
                   widget.item.title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 15.sp,
+                    fontSize: 14.sp,
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                   ),

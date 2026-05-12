@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:zen_hr/common/no_data.dart';
+import 'package:zen_hr/common/page_loader.dart';
 import 'package:zen_hr/screens/saas/attendance_machine_screen.dart';
 import 'package:zen_hr/screens/saas/company_details_screen.dart';
 import 'package:zen_hr/controllers/saas/super_admin_controller.dart';
@@ -37,8 +39,8 @@ class SuperAdminDashboard extends StatelessWidget {
         ],
       ),
       body: Obx(() {
-        if (controller.isLoading.value && controller.companies.isEmpty) {
-          return Center(child: CircularProgressIndicator(color: theme.colorScheme.primary));
+        if (controller.isLoading.value) {
+          return Center(child: PageLoader());
         }
 
         return RefreshIndicator(
@@ -69,10 +71,15 @@ class SuperAdminDashboard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      if (controller.companies.isEmpty)
-                        _buildEmptyState(context)
-                      else
+                      if (controller.companies.isEmpty) ...[
+                        const SizedBox(height: 40),
+                        NoTasksWidget(
+                          message: "No Companies Yet",
+                          desc: "Start by onboarding a new client",
+                        ),
+                      ] else ...[
                         _buildCompanyList(context),
+                      ],
                       const SizedBox(height: 50),
                     ],
                   ),
@@ -82,25 +89,6 @@ class SuperAdminDashboard extends StatelessWidget {
           ),
         );
       }),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        children: [
-          const SizedBox(height: 100),
-          Icon(Icons.business_outlined, size: 80, color: theme.dividerColor.withOpacity(0.2)),
-          const SizedBox(height: 20),
-          Text(
-            "No Companies Yet",
-            style: theme.textTheme.titleMedium?.copyWith(color: theme.dividerColor),
-          ),
-          const SizedBox(height: 10),
-          const Text("Start by onboarding a new client", style: TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
-      ),
     );
   }
 
@@ -210,7 +198,15 @@ class SuperAdminDashboard extends StatelessWidget {
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
     final compNameCtrl = TextEditingController();
+    final planId = RxInt(1);
+    final selectedRoleId = Rxn<int>(); // Add this
     final theme = Theme.of(context);
+
+    // Default select CEO if available
+    final ceoRole = controller.roles.firstWhereOrNull(
+      (r) => r['role_name'].toString().toUpperCase() == 'CEO',
+    );
+    if (ceoRole != null) selectedRoleId.value = ceoRole['id'];
 
     Get.bottomSheet(
       isScrollControlled: true,
@@ -248,19 +244,56 @@ class SuperAdminDashboard extends StatelessWidget {
               const SizedBox(height: 15),
               CustomTextField(
                 controller: nameCtrl,
-                labelText: "Admin Name",
-                hintText: "Enter admin name",
+                labelText: "CEO Name",
+                hintText: "Enter CEO full name",
                 prefixIcon: Icons.person_outline_rounded,
                 isRequired: true,
               ),
               const SizedBox(height: 15),
               CustomTextField(
                 controller: emailCtrl,
-                labelText: "Admin Email",
-                hintText: "admin@example.com",
+                labelText: "CEO Email",
+                hintText: "ceo@company.com",
                 prefixIcon: Icons.email_outlined,
                 isRequired: true,
                 keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 15),
+              Obx(
+                () => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Assign Role", style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      value: selectedRoleId.value,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: theme.cardColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        prefixIcon: const Icon(
+                          Icons.admin_panel_settings_rounded,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      items: controller.roles
+                          .where((r) {
+                            // Ab ye database se decide hoga!
+                            // Agar aapko future mein koi aur role dikhana hai,
+                            // toh bas DB mein 'is_onboarding_role' ko TRUE kar dena.
+                            return r['is_onboarding_role'] == true;
+                          })
+                          .map((r) {
+                            return DropdownMenuItem<int>(
+                              value: r['id'],
+                              child: Text(r['role_name'].toString()),
+                            );
+                          })
+                          .toList(),
+                      onChanged: (val) => selectedRoleId.value = val,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 15),
               CustomTextField(
@@ -271,6 +304,32 @@ class SuperAdminDashboard extends StatelessWidget {
                 isObscure: true,
                 isRequired: true,
               ),
+              const SizedBox(height: 20),
+              Obx(
+                () => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Select Subscription Plan", style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      value: 1, // Default to Basic
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: theme.cardColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        prefixIcon: const Icon(Icons.star_rounded, color: Colors.orange),
+                      ),
+                      items: controller.plans.map((p) {
+                        return DropdownMenuItem<int>(
+                          value: p['id'],
+                          child: Text("${p['plan_name']} (${p['max_employees']} Emp)"),
+                        );
+                      }).toList(),
+                      onChanged: (val) => planId.value = val ?? 1,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 35),
               Obx(
                 () => CustomButton(
@@ -278,8 +337,10 @@ class SuperAdminDashboard extends StatelessWidget {
                   onPressed: controller.isLoading.value
                       ? null
                       : () async {
-                          if (compNameCtrl.text.isEmpty || emailCtrl.text.isEmpty) {
-                            CustomSnackBar.error("Please fill all fields");
+                          if (compNameCtrl.text.isEmpty ||
+                              emailCtrl.text.isEmpty ||
+                              selectedRoleId.value == null) {
+                            CustomSnackBar.error("Please fill all fields and select a role");
                             return;
                           }
                           await controller.addCompany(
@@ -287,6 +348,8 @@ class SuperAdminDashboard extends StatelessWidget {
                             adminName: nameCtrl.text,
                             adminEmail: emailCtrl.text,
                             adminPassword: passCtrl.text,
+                            planId: planId.value,
+                            roleId: selectedRoleId.value!,
                           );
                           if (Navigator.canPop(Get.context!)) Navigator.pop(Get.context!);
                         },
@@ -303,6 +366,7 @@ class SuperAdminDashboard extends StatelessWidget {
   void _showEditCompanySheet(BuildContext context, Map<String, dynamic> comp) {
     final compNameCtrl = TextEditingController(text: comp['company_name']);
     final status = RxString(comp['status']?.toString() ?? 'ACTIVE');
+    final selectedPlanId = RxInt(int.tryParse(comp['plan_id']?.toString() ?? '1') ?? 1);
     final theme = Theme.of(context);
 
     Get.bottomSheet(
@@ -338,11 +402,38 @@ class SuperAdminDashboard extends StatelessWidget {
                 hintText: "Enter Company Name",
               ),
               const SizedBox(height: 20),
+              const SizedBox(height: 20),
               Obx(
                 () => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Subscription Status", style: theme.textTheme.titleMedium),
+                    Text("Subscription Plan", style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      value: selectedPlanId.value,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: theme.cardColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        prefixIcon: const Icon(Icons.star_rounded, color: Colors.orange),
+                      ),
+                      items: controller.plans.map((p) {
+                        return DropdownMenuItem<int>(
+                          value: p['id'],
+                          child: Text("${p['plan_name']} (${p['max_employees']} Emp)"),
+                        );
+                      }).toList(),
+                      onChanged: (val) => selectedPlanId.value = val ?? 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Obx(
+                () => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Account Status", style: theme.textTheme.titleMedium),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -365,7 +456,7 @@ class SuperAdminDashboard extends StatelessWidget {
                             companyId: comp['id'],
                             companyName: compNameCtrl.text,
                             status: status.value,
-                            planId: comp['plan_id'] ?? 1,
+                            planId: selectedPlanId.value,
                           );
                           if (Navigator.canPop(Get.context!)) Navigator.pop(Get.context!);
                         },
@@ -477,12 +568,24 @@ class SuperAdminDashboard extends StatelessWidget {
                     children: [Icon(Icons.edit, size: 18), SizedBox(width: 12), Text("Settings")],
                   ),
                 ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text("Delete", style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
               ],
               onSelected: (val) {
                 if (val == 'edit') {
                   _showEditCompanySheet(context, comp);
                 } else if (val == 'details') {
                   Get.to(() => CompanyDetailsScreen(companyId: comp['id']));
+                } else if (val == 'delete') {
+                  _showDeleteConfirmation(context, comp);
                 }
               },
             ),
@@ -508,6 +611,35 @@ class SuperAdminDashboard extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w800,
         ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, Map<String, dynamic> comp) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Delete Company?", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(
+          "Are you sure you want to delete ${comp['company_name']}? This will remove all associated data including employees and records.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              controller.deleteCompany(comp['id']);
+            },
+            child: const Text(
+              "Delete",
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }

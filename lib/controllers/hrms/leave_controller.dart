@@ -1,258 +1,278 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:zen_hr/model/hrms/leave_apply_request_model.dart';
-import 'package:zen_hr/model/hrms/leave_request_model.dart';
-import 'package:zen_hr/model/hrms/leave_type_response_model.dart';
-import 'package:zen_hr/services/hrms_api_service.dart';
-import 'package:zen_hr/widgets/custom_snackbar.dart';
-import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zen_hr/controllers/user/user_controller.dart';
+import 'package:zen_hr/widgets/custom_snackbar.dart';
 
 class LeaveController extends GetxController {
-  /// FORM KEYS
+  final _supabase = Supabase.instance.client;
+  final _userController = Get.find<UserController>();
+
+  // --- Leave Type Management (New Features) ---
+  // --- Leave Type Management (New Features) ---
   final addLeaveTypeFormKey = GlobalKey<FormState>();
-  final applyLeaveFormKey = GlobalKey<FormState>();
-
-  /// TEXT CONTROLLERS
   final leaveNameController = TextEditingController();
-  final leaveCountController = TextEditingController();
+  final leaveDaysController = TextEditingController();
+  final financialYearController = TextEditingController(text: "2025-2026");
+  final Rxn<int> editingId = Rxn<int>();
+
+  // --- Apply Leave Logic (Recovered Old Code) ---
+  final applyLeaveFormKey = GlobalKey<FormState>();
   final reasonController = TextEditingController();
-
-  RxList<LeaveTypeData> leaveTypes = <LeaveTypeData>[].obs;
-  RxList<LeaveRequestModel> appliedLeaves = <LeaveRequestModel>[].obs;
-  RxList<LeaveRequestModel> otherLeavesRequest = <LeaveRequestModel>[].obs;
-  var userRole = "".obs;
-  var hrApprovalMap = <int, bool>{}.obs;
-
-  /// APPLY LEAVE STATE
-  var selectedLeaveTypeId = Rxn<int>();
-  var fromDate = Rxn<DateTime>();
-  var toDate = Rxn<DateTime>();
-  var selectedSessionId = 1.obs; // 1: Full Day, 2: First Half, 3: Second Half
-
-  final List<Map<String, dynamic>> leaveSessions = [
-    {"id": 1, "name": "Full Day"},
-    {"id": 2, "name": "First Half"},
-    {"id": 3, "name": "Second Half"},
+  final Rxn<int> selectedLeaveTypeId = Rxn<int>();
+  final Rx<DateTime> fromDate = DateTime.now().obs;
+  final Rx<DateTime> toDate = DateTime.now().obs;
+  final Rxn<String> selectedSessionId = Rxn<String>();
+  
+  final List<Map<String, String>> leaveSessions = [
+    {"id": "FULL_DAY", "name": "Full Day"},
+    {"id": "FIRST_HALF", "name": "First Half"},
+    {"id": "SECOND_HALF", "name": "Second Half"},
   ];
 
-  /// GETTERS
-  LeaveTypeData? get selectedLeaveType =>
-      leaveTypes.firstWhereOrNull((e) => e.id == selectedLeaveTypeId.value);
-
-  /// LOADING
-  RxBool isLoading = false.obs;
+  final RxList<Map<String, dynamic>> leaveTypes = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> myLeavesRequest = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> otherLeavesRequest = <Map<String, dynamic>>[].obs;
+  final RxBool isLoading = false.obs;
+  final RxInt currentDashboardIndex = 0.obs;
 
   @override
   void onInit() {
     super.onInit();
-    final userController = Get.find<UserController>();
-    userRole.value = userController.role.value;
     fetchLeaveTypes();
-    fetchMyAppliedLeaves();
-    fetchOtherLeaves();
+    fetchLeaveRequests();
   }
 
-  void onLeaveTypeChanged(int? id) {
-    selectedLeaveTypeId.value = id;
+  void clearApplyForm() {
+    selectedLeaveTypeId.value = null;
+    fromDate.value = DateTime.now();
+    toDate.value = DateTime.now();
+    selectedSessionId.value = null;
+    reasonController.clear();
   }
 
-  Future<void> pickDate(BuildContext context, bool isFrom) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    );
-    if (picked != null) {
-      if (isFrom) {
-        fromDate.value = picked;
-      } else {
-        toDate.value = picked;
-      }
-    }
+  // --- Computed Properties ---
+  Map<String, dynamic>? get selectedLeaveType {
+    if (selectedLeaveTypeId.value == null) return null;
+    return leaveTypes.firstWhereOrNull((e) => e['id'] == selectedLeaveTypeId.value);
   }
 
-  double calculateLeaveDays() {
-    if (fromDate.value == null || toDate.value == null) return 0;
+  // --- Logic Methods ---
 
-    final duration = toDate.value!.difference(fromDate.value!).inDays + 1;
-    if (duration < 0) return 0;
-
-    if (selectedSessionId.value != 1) {
-      return 0.5;
-    }
-    return duration.toDouble();
-  }
-
-  double calculateUsedLeaves(String? leaveName) {
-    if (leaveName == null) return 0;
-    return appliedLeaves
-        .where((l) => l.leaveTypeName == leaveName && l.status != 'REJECTED')
-        .fold(0.0, (sum, item) => sum + item.totalDays);
-  }
-
-  double calculatePendingLeaves(String? leaveName) {
-    if (leaveName == null) return 0;
-    return appliedLeaves
-        .where((l) => l.leaveTypeName == leaveName && l.status == 'PENDING')
-        .fold(0.0, (sum, item) => sum + item.totalDays);
-  }
-
-  /// SUBMIT LEAVE TYPE
-  Future<void> submitLeaveType() async {
-    if (isLoading.value) return;
-    if (!addLeaveTypeFormKey.currentState!.validate()) return;
-
-    final leaveName = leaveNameController.text.trim();
-    final leaveCount = int.tryParse(leaveCountController.text.trim()) ?? 0;
-
-    final success = await addLeaveType(leaveName: leaveName, leaveCount: leaveCount);
-
-    if (success) {
-      Get.back();
-      CustomSnackBar.success("Leave type added successfully");
-    }
-  }
-
-  /// SUBMIT LEAVE REQUEST
-  Future<void> submitLeaveRequest() async {
-    if (isLoading.value) return;
-    if (!applyLeaveFormKey.currentState!.validate()) return;
-    if (selectedLeaveTypeId.value == null) {
-      CustomSnackBar.warning("Please select a leave type");
-      return;
-    }
-    if (fromDate.value == null || toDate.value == null) {
-      CustomSnackBar.warning("Please select dates");
-      return;
-    }
-
-    try {
-      isLoading.value = true;
-
-      // Calculate days
-      final duration = toDate.value!.difference(fromDate.value!).inDays + 1;
-      double daysCount = duration.toDouble();
-      if (selectedSessionId.value != 1) {
-        daysCount = 0.5; // If not full day, assume 0.5 for demonstration
-      }
-
-      final request = LeaveApplyRequestModel(
-        leaveTypeId: selectedLeaveTypeId.value!,
-        fromDate: DateFormat('yyyy-MM-dd').format(fromDate.value!),
-        toDate: DateFormat('yyyy-MM-dd').format(toDate.value!),
-        days: daysCount,
-        sessionDay: selectedSessionId.value,
-        reason: reasonController.text.trim(),
-      );
-
-      final res = await HrmsApiService.applyLeave(request);
-
-      if (res["success"] == true) {
-        Get.back();
-        CustomSnackBar.success("Leave applied successfully");
-        fetchMyAppliedLeaves(); // Refresh history
-        // Clear fields
-        selectedLeaveTypeId.value = null;
-        fromDate.value = null;
-        toDate.value = null;
-        selectedSessionId.value = 1;
-        reasonController.clear();
-      } else {
-        CustomSnackBar.error(res["message"] ?? "Failed to apply leave");
-      }
-    } catch (e) {
-      CustomSnackBar.error("Error: $e");
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  /// ADD LEAVE TYPE API
-  Future<bool> addLeaveType({required String leaveName, required int leaveCount}) async {
-    try {
-      isLoading.value = true;
-      final res = await HrmsApiService.addLeaveType(leaveName: leaveName, leaveCount: leaveCount);
-      if (res["success"] == true) {
-        await fetchLeaveTypes();
-        leaveNameController.clear();
-        leaveCountController.clear();
-        return true;
-      } else {
-        throw res["message"] ?? res["error"] ?? "Failed to add leave type";
-      }
-    } catch (err) {
-      CustomSnackBar.error("Error - $err");
-      return false;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  /// FETCH ALL LEAVE TYPES
   Future<void> fetchLeaveTypes() async {
     try {
       isLoading.value = true;
-      final data = await HrmsApiService.fetchAllLeaveTypes();
-      leaveTypes.assignAll(data.map((e) => LeaveTypeData.fromJson(e)).toList());
+      final user = _userController.currentUser.value;
+      if (user == null) return;
+
+      final data = await _supabase
+          .from('leave_types')
+          .select()
+          .eq('company_id', user.companyId!)
+          .eq('financial_year', financialYearController.text.trim())
+          .order('created_at', ascending: false);
+
+      leaveTypes.assignAll(data.cast<Map<String, dynamic>>());
     } catch (e) {
-      CustomSnackBar.error("Error - $e");
+      print("Error fetching leave types: $e");
     } finally {
       isLoading.value = false;
     }
   }
 
-  @override
-  void onClose() {
-    leaveNameController.dispose();
-    leaveCountController.dispose();
-    reasonController.dispose();
-    super.onClose();
-  }
-
-  /// FETCH MY APPLIED LEAVES
-  Future<void> fetchMyAppliedLeaves() async {
+  Future<void> fetchLeaveRequests() async {
     try {
       isLoading.value = true;
-      final data = await HrmsApiService.fetchMyAppliedLeaves();
-      appliedLeaves.assignAll(data.map((e) => LeaveRequestModel.fromJson(e)).toList());
+      final user = _userController.currentUser.value;
+      if (user == null) return;
+
+      // 1. My Requests
+      final myData = await _supabase
+          .from('leave_requests')
+          .select('*, leave_types(leave_name, financial_year)')
+          .eq('employee_id', user.id)
+          .eq('financial_year', financialYearController.text.trim())
+          .order('applied_at', ascending: false);
+      myLeavesRequest.assignAll(myData.cast<Map<String, dynamic>>());
+
+      // 2. Approval Requests (Role-based Hierarchy)
+      final role = user.role?.toLowerCase() ?? "";
+      var query = _supabase
+          .from('leave_requests')
+          .select('*, applicant:employee_id(name, role, reporting_to), leave_types(leave_name, financial_year)')
+          .eq('company_id', user.companyId!)
+          .eq('status', 'PENDING')
+          .eq('financial_year', financialYearController.text.trim())
+          .neq('employee_id', user.id);
+
+      final otherData = await query.order('applied_at', ascending: false);
+      
+      // Filter data in Dart based on complex hierarchy
+      final filteredData = otherData.where((req) {
+        final applicantRole = (req['applicant']['role'] ?? "").toString().toLowerCase();
+        final reportingTo = req['applicant']['reporting_to'];
+
+        if (role == 'ceo' || role == 'admin') {
+          // CEO/Admin can approve HR, Manager, Admin
+          return ['hr', 'manager', 'admin'].contains(applicantRole);
+        } else if (role == 'hr') {
+          // HR can approve Employees (even if reporting to someone else)
+          return applicantRole == 'employee';
+        } else if (role == 'manager') {
+          // Manager can only approve if they are the reporting manager
+          return reportingTo == user.id;
+        }
+        return false;
+      }).toList();
+
+      otherLeavesRequest.assignAll(filteredData.cast<Map<String, dynamic>>());
     } catch (e) {
-      CustomSnackBar.error("Error - $e");
+      print("Error fetching leave requests: $e");
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// FETCH OTHER LEAVES (For Approval)
-  Future<void> fetchOtherLeaves() async {
+  Future<void> submitLeaveRequest() async {
+    if (!applyLeaveFormKey.currentState!.validate()) return;
+    if (selectedLeaveTypeId.value == null) {
+      CustomSnackBar.error("Please select leave category");
+      return;
+    }
+
     try {
       isLoading.value = true;
-      final data = await HrmsApiService.fetchOtherLeaves();
-      otherLeavesRequest.assignAll(data.map((e) => LeaveRequestModel.fromJson(e)).toList());
+      final user = _userController.currentUser.value;
+      
+      await _supabase.from('leave_requests').insert({
+        'company_id': user!.companyId,
+        'employee_id': user.id,
+        'leave_type_id': selectedLeaveTypeId.value,
+        'from_date': fromDate.value.toIso8601String(),
+        'to_date': toDate.value.toIso8601String(),
+        'total_days': calculateLeaveDays(),
+        'session_type': selectedSessionId.value ?? 'FULL_DAY',
+        'reason': reasonController.text.trim(),
+        'financial_year': financialYearController.text.trim(), // Added FY
+        'status': 'PENDING',
+      });
+
+      CustomSnackBar.success("Leave request submitted!");
+      clearApplyForm();
+      fetchLeaveRequests();
+      currentDashboardIndex.value = 0; // Redirect to index 0
     } catch (e) {
-      // Ignore error if not authorized or network issue during auto-fetch
-      debugPrint("fetchOtherLeaves error: $e");
+      CustomSnackBar.error("Error submitting leave: $e");
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// UPDATE LEAVE STATUS (Approve/Reject)
-  Future<void> updateLeaveStatus(int leaveId, String status, String remarks) async {
+  Future<void> updateLeaveStatus(dynamic id, String status, {String? rejectReason, String? approvalRemarks}) async {
     try {
       isLoading.value = true;
-      final res = await HrmsApiService.updateLeaveStatus(leaveId, status, remarks);
-      if (res["success"] == true) {
-        CustomSnackBar.success(res["message"] ?? "Status updated");
-        fetchOtherLeaves(); // Refresh approval list
+      final user = _userController.currentUser.value;
+
+      await _supabase
+          .from('leave_requests')
+          .update({
+            'status': status,
+            'reject_reason': rejectReason,
+            'approval_remarks': approvalRemarks,
+            'approver_id': user!.id,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id);
+
+      CustomSnackBar.success("Request $status successfully!");
+      fetchLeaveRequests();
+    } catch (e) {
+      CustomSnackBar.error("Error updating status: $e");
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // --- Calculations ---
+
+  double calculateLeaveDays() {
+    final days = toDate.value.difference(fromDate.value).inDays + 1;
+    if (selectedSessionId.value == 'FIRST_HALF' || selectedSessionId.value == 'SECOND_HALF') {
+      return 0.5;
+    }
+    return days.toDouble();
+  }
+
+  double calculateUsedLeaves(String leaveName) {
+    return myLeavesRequest
+        .where((l) => l['leave_types']?['leave_name'] == leaveName && l['status'] == 'APPROVED')
+        .fold(0.0, (sum, l) => sum + (l['total_days'] ?? 0).toDouble());
+  }
+
+  double calculatePendingLeaves(String leaveName) {
+    return myLeavesRequest
+        .where((l) => l['leave_types']?['leave_name'] == leaveName && l['status'] == 'PENDING')
+        .fold(0.0, (sum, l) => sum + (l['total_days'] ?? 0).toDouble());
+  }
+
+  // --- Helpers ---
+
+  Future<void> pickDate(BuildContext context, bool isFrom) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: isFrom ? fromDate.value : toDate.value,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (date != null) {
+      if (isFrom) {
+        fromDate.value = date;
+        if (toDate.value.isBefore(date)) toDate.value = date;
       } else {
-        CustomSnackBar.error(res["message"] ?? "Failed to update status");
+        toDate.value = date;
       }
+    }
+  }
+
+  // --- Admin Leave Type Methods ---
+
+  Future<void> saveLeaveType() async {
+    if (!addLeaveTypeFormKey.currentState!.validate()) return;
+    try {
+      isLoading.value = true;
+      final user = _userController.currentUser.value;
+      final payload = {
+        'company_id': user!.companyId,
+        'leave_name': leaveNameController.text.trim(),
+        'leave_count': double.parse(leaveDaysController.text.trim()),
+        'financial_year': financialYearController.text.trim(),
+      };
+
+      if (editingId.value != null) {
+        await _supabase.from('leave_types').update(payload).eq('id', editingId.value!);
+        CustomSnackBar.success("Updated!");
+      } else {
+        await _supabase.from('leave_types').insert(payload);
+        CustomSnackBar.success("Added!");
+      }
+      resetForm();
+      fetchLeaveTypes();
     } catch (e) {
       CustomSnackBar.error("Error: $e");
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void startEditing(Map<String, dynamic> type) {
+    editingId.value = type['id'];
+    leaveNameController.text = type['leave_name'];
+    leaveDaysController.text = type['leave_count'].toString();
+  }
+
+  void resetForm() {
+    editingId.value = null;
+    leaveNameController.clear();
+    leaveDaysController.clear();
   }
 }

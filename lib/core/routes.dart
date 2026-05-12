@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:zen_hr/core/app_constants.dart';
 import 'package:zen_hr/screens/auth/login_screen.dart';
+import 'package:zen_hr/screens/hrms/attendance_screen.dart';
+import 'package:zen_hr/screens/hrms/attendance_report_screen.dart';
+import 'package:zen_hr/screens/hrms/admin_attendance_screen.dart';
 import 'package:zen_hr/screens/hrms/hrms_dashboard.dart';
 import 'package:zen_hr/screens/hrms/widgets/add_leave_type.dart';
 import 'package:zen_hr/screens/hrms/widgets/apply_leave.dart';
@@ -32,6 +35,9 @@ class Routes {
   static const String applyLeave = "/applyLeave";
   static const String approveLeave = "/approveLeave";
   static const String leaveBalance = "/leaveBalance";
+  static const String attendanceScreen = "/attendanceScreen";
+  static const String attendanceReport = "/attendanceReport";
+  static const String adminAttendance = "/adminAttendance";
 }
 
 const Duration transitionDuration = Duration(milliseconds: AppConstants.transitionDuration);
@@ -60,5 +66,7 @@ List<GetPage> appPages() => [
   _getPage(Routes.applyLeave, ApplyLeave()),
   _getPage(Routes.approveLeave, ApproveLeave()),
   _getPage(Routes.leaveBalance, LeaveBalance()),
-
+  _getPage(Routes.attendanceScreen, AttendanceScreen()),
+  _getPage(Routes.attendanceReport, AttendanceReportScreen()),
+  _getPage(Routes.adminAttendance, const AdminAttendanceScreen()),
 ];

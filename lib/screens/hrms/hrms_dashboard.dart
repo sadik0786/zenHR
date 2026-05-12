@@ -11,43 +11,34 @@ import 'package:zen_hr/screens/hrms/widgets/approve_leave.dart';
 import 'package:zen_hr/screens/hrms/widgets/leave_balance.dart';
 import 'package:zen_hr/screens/hrms/widgets/leave_home.dart';
 
-class HrmsDashboard extends StatefulWidget {
+class HrmsDashboard extends StatelessWidget {
   const HrmsDashboard({super.key});
 
   @override
-  State<HrmsDashboard> createState() => _HrmsDashboardState();
-}
-
-class _HrmsDashboardState extends State<HrmsDashboard> {
-  final LeaveController leaveController = Get.put(LeaveController());
-  final UserController userController = Get.find<UserController>();
-
-  int _selectedIndex = 0;
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final LeaveController leaveController = Get.put(LeaveController());
+    final UserController userController = Get.find<UserController>();
+
     return Obx(() {
-      final role = userController.role.value.toLowerCase();
+      final role = (userController.currentUser.value?.role ?? "").toLowerCase();
+      final selectedIndex = leaveController.currentDashboardIndex.value;
 
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           backgroundColor: ThemeClass.primaryGreen,
           elevation: 0,
-          title: Text(switch (_selectedIndex) {
-            0 => "Leave Home",
-            1 => "Add Leave Type",
-            2 => "Apply Leave",
-            3 => "Approve Leave",
-            4 => "Leave Balance",
-            _ => "HR Management",
-          }, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text(
+            switch (selectedIndex) {
+              0 => "Leave Home",
+              1 => "Add Leave Type",
+              2 => "Apply Leave",
+              3 => "Approve Leave",
+              4 => "Leave Balance",
+              _ => "HR Management",
+            },
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.home, color: Colors.white),
@@ -57,13 +48,13 @@ class _HrmsDashboardState extends State<HrmsDashboard> {
         ),
         body: SafeArea(
           child: IndexedStack(
-            index: _selectedIndex,
-            children: [
-              const LeaveHome(), // index 0
-              const AddLeaveType(), // index 1
-              const ApplyLeave(), // index 2
-              const ApproveLeave(), // index 3
-              const LeaveBalance(), // index 4
+            index: selectedIndex,
+            children: const [
+              LeaveHome(), // index 0
+              AddLeaveType(), // index 1
+              ApplyLeave(), // index 2
+              ApproveLeave(), // index 3
+              LeaveBalance(), // index 4
             ],
           ),
         ),
@@ -92,9 +83,9 @@ class _HrmsDashboardState extends State<HrmsDashboard> {
               ListTile(
                 leading: const Icon(Icons.home_outlined),
                 title: const Text('Leave Home'),
-                selected: _selectedIndex == 0,
+                selected: selectedIndex == 0,
                 onTap: () {
-                  _onItemTapped(0);
+                  leaveController.currentDashboardIndex.value = 0;
                   Navigator.pop(context);
                 },
               ),
@@ -102,9 +93,9 @@ class _HrmsDashboardState extends State<HrmsDashboard> {
                 ListTile(
                   leading: const Icon(Icons.add_circle_outline),
                   title: const Text('Add Leave Type'),
-                  selected: _selectedIndex == 1,
+                  selected: selectedIndex == 1,
                   onTap: () {
-                    _onItemTapped(1);
+                    leaveController.currentDashboardIndex.value = 1;
                     Navigator.pop(context);
                   },
                 ),
@@ -112,9 +103,9 @@ class _HrmsDashboardState extends State<HrmsDashboard> {
                 ListTile(
                   leading: const Icon(Icons.post_add),
                   title: const Text('Apply Leave'),
-                  selected: _selectedIndex == 2,
+                  selected: selectedIndex == 2,
                   onTap: () {
-                    _onItemTapped(2);
+                    leaveController.currentDashboardIndex.value = 2;
                     Navigator.pop(context);
                   },
                 ),
@@ -122,9 +113,9 @@ class _HrmsDashboardState extends State<HrmsDashboard> {
                 ListTile(
                   leading: const Icon(Icons.rule),
                   title: const Text('Approve Emp. Leave'),
-                  selected: _selectedIndex == 3,
+                  selected: selectedIndex == 3,
                   onTap: () {
-                    _onItemTapped(3);
+                    leaveController.currentDashboardIndex.value = 3;
                     Navigator.pop(context);
                   },
                 ),
@@ -132,9 +123,9 @@ class _HrmsDashboardState extends State<HrmsDashboard> {
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet_outlined),
                   title: const Text('Leave Balance'),
-                  selected: _selectedIndex == 4,
+                  selected: selectedIndex == 4,
                   onTap: () {
-                    _onItemTapped(4);
+                    leaveController.currentDashboardIndex.value = 4;
                     Navigator.pop(context);
                   },
                 ),

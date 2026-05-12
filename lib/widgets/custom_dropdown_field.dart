@@ -5,7 +5,7 @@ import 'package:zen_hr/core/theme.dart';
 
 class CustomDropdownField<T> extends StatefulWidget {
   final String? labelText;
-  final bool isRequired; 
+  final bool isRequired;
   final String hintText;
   final IconData prefixIcon;
   final List<Map<String, dynamic>> items;
@@ -40,20 +40,27 @@ class CustomDropdownField<T> extends StatefulWidget {
 }
 
 class _CustomDropdownFieldState<T> extends State<CustomDropdownField<T>> {
-  late ValueNotifier<T?> _selectedValueNotifier;
   bool _isDropdownOpen = false;
+  late ValueNotifier<T?> _selectedValueNotifier;
 
   @override
   void initState() {
     super.initState();
-    _selectedValueNotifier = ValueNotifier<T?>(widget.value);
+    // Initialize notifier with the initial value if it exists in items
+    final bool valueExists = widget.items.any(
+      (item) => item[widget.valueKey]?.toString() == widget.value?.toString(),
+    );
+    _selectedValueNotifier = ValueNotifier<T?>(valueExists ? widget.value : null);
   }
 
   @override
   void didUpdateWidget(CustomDropdownField<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      _selectedValueNotifier.value = widget.value;
+      final bool valueExists = widget.items.any(
+        (item) => item[widget.valueKey]?.toString() == widget.value?.toString(),
+      );
+      _selectedValueNotifier.value = valueExists ? widget.value : null;
     }
   }
 
@@ -62,6 +69,7 @@ class _CustomDropdownFieldState<T> extends State<CustomDropdownField<T>> {
     _selectedValueNotifier.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isLoading) {
@@ -77,7 +85,10 @@ class _CustomDropdownFieldState<T> extends State<CustomDropdownField<T>> {
               child: CircularProgressIndicator(strokeWidth: 2.w),
             ),
             SizedBox(width: 12.w),
-            Text("Loading...", style: TextStyle(fontSize: 16.sp)),
+            Text(
+              "Loading...",
+              style: TextStyle(fontSize: 16.sp, color: Colors.white),
+            ),
           ],
         ),
       );
@@ -91,9 +102,11 @@ class _CustomDropdownFieldState<T> extends State<CustomDropdownField<T>> {
             children: [
               Text(
                 widget.labelText!,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w400, fontSize: 15.sp),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w400,
+                  fontSize: 15.sp,
+                  color: Colors.white70,
+                ),
               ),
               if (widget.isRequired)
                 Text(
@@ -110,29 +123,38 @@ class _CustomDropdownFieldState<T> extends State<CustomDropdownField<T>> {
           hint: Text(
             widget.hintText,
             style: TextStyle(
-              color: widget.isEnabled == false
-                  ? ThemeClass.textWhite
-                  : ThemeClass.textWhite.withAlpha(80),
+              color: widget.isEnabled
+                  ? ThemeClass.textWhite.withOpacity(0.7)
+                  : ThemeClass.textWhite.withOpacity(0.4),
               fontSize: 16.sp,
             ),
           ),
-          items: widget.items.map((item) {
-            return DropdownItem<T>(
-              value: item[widget.valueKey] as T,
-              child: Text(
-                item[widget.labelKey].toString(),
-                style: TextStyle(
-                  color: widget.isEnabled ? ThemeClass.textWhite : ThemeClass.textBlack,
-                  fontSize: 16.sp,
+          items: widget.items
+              .where((item) => item[widget.valueKey] != null)
+              .map(
+                (item) => DropdownItem<T>(
+                  value: item[widget.valueKey] as T,
+                  height: 48.h,
+                  child: Text(
+                    item[widget.labelKey].toString(),
+                    style: TextStyle(color: Colors.white, fontSize: 16.sp),
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
+              )
+              .toList(),
           onMenuStateChange: (isOpen) {
-            // 🔹 Listen for open/close events
-            setState(() => _isDropdownOpen = isOpen);
+            setState(() {
+              _isDropdownOpen = isOpen;
+            });
           },
-          onChanged: widget.isEnabled ? widget.onChanged : null,
+          onChanged: widget.isEnabled
+              ? (val) {
+                  _selectedValueNotifier.value = val;
+                  if (widget.onChanged != null) {
+                    widget.onChanged!(val);
+                  }
+                }
+              : null,
           validator:
               widget.validator ??
               (val) {
@@ -144,36 +166,40 @@ class _CustomDropdownFieldState<T> extends State<CustomDropdownField<T>> {
           decoration: InputDecoration(
             prefixIcon: Icon(
               widget.prefixIcon,
-              color: widget.isEnabled ? ThemeClass.textWhite : ThemeClass.textBlack,
+              color: widget.isEnabled ? ThemeClass.textWhite : Colors.grey,
             ),
             filled: true,
-            fillColor: widget.isEnabled ? widget.fillColor : ThemeClass.textBlack,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
-            contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
+            fillColor: widget.isEnabled ? widget.fillColor : Colors.grey.withOpacity(0.1),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              borderSide: const BorderSide(color: Colors.blue),
+            ),
+            contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 0.w),
           ),
           iconStyleData: IconStyleData(
             icon: AnimatedRotation(
-              turns: _isDropdownOpen ? 0.5 : 0.0,
+              turns: _isDropdownOpen ? 0.5 : 0,
               duration: const Duration(milliseconds: 200),
-              child: Icon(
-                Icons.keyboard_arrow_down,
-                color: widget.isEnabled ? ThemeClass.textWhite : ThemeClass.textBlack,
-                size: 24.sp,
-              ),
+              child: Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 24.sp),
             ),
           ),
           dropdownStyleData: DropdownStyleData(
             maxHeight: 300.h,
-            width: MediaQuery.of(context).size.width - 35.w,
+            width: MediaQuery.of(context).size.width,
             decoration: BoxDecoration(
-              color: widget.isEnabled ? ThemeClass.textBlack : ThemeClass.textBlack,
+              color: ThemeClass.darkCardColor,
               borderRadius: BorderRadius.circular(12.r),
             ),
           ),
-          buttonStyleData: FormFieldButtonStyleData(
-            padding: EdgeInsets.symmetric(horizontal: 8.w),
-            height: 28.h,
-            width: double.infinity,
+          menuItemStyleData: MenuItemStyleData(padding: EdgeInsets.symmetric(horizontal: 20.w),
           ),
         ),
       ],

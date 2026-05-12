@@ -6,12 +6,13 @@ import 'package:zen_hr/widgets/custom_button.dart';
 
 class CompanyDetailsScreen extends StatelessWidget {
   final int companyId;
-  final SuperAdminController controller = Get.find<SuperAdminController>();
-
-  CompanyDetailsScreen({super.key, required this.companyId});
+  
+  const CompanyDetailsScreen({super.key, required this.companyId});
 
   @override
   Widget build(BuildContext context) {
+    // SuperAdminController is already put in SuperAdminDashboard, so find is safe here
+    final SuperAdminController controller = Get.find<SuperAdminController>();
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -19,7 +20,7 @@ class CompanyDetailsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text("Company Details"), centerTitle: true),
       body: Obx(() {
         final company = controller.companies.firstWhere(
-          (c) => c['CompanyID'] == companyId,
+          (c) => c['id'] == companyId,
           orElse: () => {},
         );
 
@@ -38,30 +39,30 @@ class CompanyDetailsScreen extends StatelessWidget {
               _buildDetailCard(context, "Subscription Details", [
                 _detailRow(
                   "Current Plan",
-                  company['PlanName'] ?? "Basic",
+                  company['subscription_plans']?['plan_name'] ?? "Basic",
                   Icons.card_membership_rounded,
                 ),
                 _detailRow(
                   "Status",
-                  company['SubscriptionStatus'] ?? "ACTIVE",
+                  company['status'] ?? "ACTIVE",
                   Icons.verified_user_rounded,
                   isStatus: true,
                 ),
-                _detailRow("Company ID", "#${company['CompanyID']}", Icons.fingerprint_rounded),
+                _detailRow("Company ID", "#${company['id']}", Icons.fingerprint_rounded),
               ]),
               const SizedBox(height: 20),
               _buildDetailCard(context, "Admin Information", [
                 _detailRow(
                   "Primary Contact",
-                  company['AdminName'] ?? "N/A",
+                  company['admin_name'] ?? "N/A",
                   Icons.person_outline_rounded,
                 ),
-                _detailRow("Admin Email", company['AdminEmail'] ?? "N/A", Icons.email_outlined),
+                _detailRow("Admin Email", company['admin_email'] ?? "N/A", Icons.email_outlined),
               ]),
               const SizedBox(height: 40),
               CustomButton(
                 text: "Manage Subscription Plan",
-                onPressed: () => _showPlanManagementSheet(context, company),
+                onPressed: () => _showPlanManagementSheet(context, controller, company),
               ),
               const SizedBox(height: 30),
             ],
@@ -88,7 +89,7 @@ class CompanyDetailsScreen extends StatelessWidget {
             ),
           ),
           Text(
-            company['CompanyName'] ?? "Unknown",
+            company['company_name'] ?? "Unknown",
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
           ),
         ],
@@ -102,7 +103,7 @@ class CompanyDetailsScreen extends StatelessWidget {
         _statItem(
           context,
           "Employees",
-          "${company['EmployeeCount'] ?? 0}",
+          "${company['employee_count'] ?? 0}",
           Icons.people,
           Colors.blue,
         ),
@@ -110,7 +111,7 @@ class CompanyDetailsScreen extends StatelessWidget {
         _statItem(
           context,
           "Projects",
-          "${company['ProjectCount'] ?? 0}",
+          "${company['project_count'] ?? 0}",
           Icons.assignment,
           Colors.orange,
         ),
@@ -182,9 +183,9 @@ class CompanyDetailsScreen extends StatelessWidget {
     );
   }
 
-  void _showPlanManagementSheet(BuildContext context, Map<String, dynamic> company) {
+  void _showPlanManagementSheet(BuildContext context, SuperAdminController controller, Map<String, dynamic> company) {
     final theme = Theme.of(context);
-    final initialId = int.tryParse(company['PlanID']?.toString() ?? '1') ?? 1;
+    final initialId = int.tryParse(company['plan_id']?.toString() ?? '1') ?? 1;
     final RxInt selectedPlanId = RxInt(initialId);
 
     Get.bottomSheet(
@@ -207,34 +208,20 @@ class CompanyDetailsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Text("Manage Plan", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text("Manage Subscription Plan", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 30),
             Obx(() {
               final currentId = selectedPlanId.value;
               return Column(
-                children: [
-                  _planOption(
-                    1,
-                    "Basic Plan",
-                    "10 Employees",
+                children: controller.plans.map((plan) {
+                  return _planOption(
+                    plan['id'],
+                    plan['plan_name'] ?? "Unknown",
+                    "${plan['max_employees']} Employees Limit",
                     currentId,
                     (v) => selectedPlanId.value = v,
-                  ),
-                  _planOption(
-                    2,
-                    "Premium Plan",
-                    "20 Employees",
-                    currentId,
-                    (v) => selectedPlanId.value = v,
-                  ),
-                  _planOption(
-                    3,
-                    "Enterprise Plan",
-                    "50 Employees",
-                    currentId,
-                    (v) => selectedPlanId.value = v,
-                  ),
-                ],
+                  );
+                }).toList(),
               );
             }),
             const SizedBox(height: 30),
@@ -246,9 +233,9 @@ class CompanyDetailsScreen extends StatelessWidget {
                     : () async {
                         try {
                           await controller.updateCompany(
-                            companyId: company['CompanyID'],
-                            companyName: company['CompanyName'],
-                            status: company['SubscriptionStatus'],
+                            companyId: company['id'],
+                            companyName: company['company_name'],
+                            status: company['status'],
                             planId: selectedPlanId.value,
                           );
                         } finally {

@@ -39,7 +39,8 @@ class AppConstants {
   static const String appLockPinKey = "appLockPin";
 
   // Roles
-  static const String roleSuperAdmin = "super_admin";
+  static const String roleOwner = "owner";
+  static const String roleSuperAdmin = "superAdmin";
   static const String roleCeo = "ceo";
   static const String roleHr = "hr";
   static const String roleManager = "manager";
@@ -47,4 +48,19 @@ class AppConstants {
   static const String roleEmployee = "employee";
   static const String roleAccountant = "accountant";
 
+  // App Owner Email
+  static const String ownerEmail = "alisadik99@gmail.com";
+
+  // Helper to check if role is owner
+  static bool isSuperUser(String? role) {
+    if (role == null) return false;
+    final r = role.toLowerCase();
+    return r == roleOwner; // Only 'owner' goes to SaaS Control Center
+  }
+
+  // Helper to check if the current user is the main App Owner
+  static bool isAppOwner(String? email) {
+    if (email == null) return false;
+    return email.toLowerCase() == ownerEmail.toLowerCase();
+  }
 }

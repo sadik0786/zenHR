@@ -81,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 30),
                           CustomTextField(
                             isEnabled: true,
-                            controller: loginController.email.value,
+                            controller: loginController.email,
                             labelText: "Email Address",
                             hintText: "admin@zenhr.com",
                             prefixIcon: Icons.email_outlined,
@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 20),
                           CustomTextField(
                             isEnabled: true,
-                            controller: loginController.password.value,
+                            controller: loginController.password,
                             labelText: "Password",
                             hintText: "••••••••",
                             isObscure: true,
