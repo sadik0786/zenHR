@@ -80,6 +80,7 @@ class HrmsDashboard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (role != AppConstants.roleCeo)
               ListTile(
                 leading: const Icon(Icons.home_outlined),
                 title: const Text('Leave Home'),
@@ -116,6 +117,7 @@ class HrmsDashboard extends StatelessWidget {
                   selected: selectedIndex == 3,
                   onTap: () {
                     leaveController.currentDashboardIndex.value = 3;
+                    leaveController.fetchLeaveRequests(); // Auto Refresh
                     Navigator.pop(context);
                   },
                 ),

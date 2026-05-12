@@ -96,36 +96,49 @@ class LeaveController extends GetxController {
       myLeavesRequest.assignAll(myData.cast<Map<String, dynamic>>());
 
       // 2. Approval Requests (Role-based Hierarchy)
-      final role = user.role?.toLowerCase() ?? "";
+      final currentUserRole = user.role?.toLowerCase() ?? "";
+      
       var query = _supabase
           .from('leave_requests')
-          .select('*, applicant:employee_id(name, role, reporting_to), leave_types(leave_name, financial_year)')
+          .select('*, applicant:users!employee_id(name, role_master(role_name), reporting_to), leave_types(leave_name, financial_year)')
           .eq('company_id', user.companyId!)
           .eq('status', 'PENDING')
-          .eq('financial_year', financialYearController.text.trim())
           .neq('employee_id', user.id);
 
       final otherData = await query.order('applied_at', ascending: false);
-      
-      // Filter data in Dart based on complex hierarchy
-      final filteredData = otherData.where((req) {
-        final applicantRole = (req['applicant']['role'] ?? "").toString().toLowerCase();
-        final reportingTo = req['applicant']['reporting_to'];
+      print("🔍 DB Records Found: ${otherData.length}");
 
-        if (role == 'ceo' || role == 'admin') {
-          // CEO/Admin can approve HR, Manager, Admin
+      final filteredData = otherData.where((req) {
+        final applicant = req['applicant'];
+        if (applicant == null) return false;
+
+        // Extract applicant role
+        String applicantRole = "";
+        final roleData = applicant['role_master'];
+        if (roleData is List && roleData.isNotEmpty) {
+          applicantRole = (roleData[0]['role_name'] ?? "").toString().trim().toLowerCase();
+        } else if (roleData is Map) {
+          applicantRole = (roleData['role_name'] ?? "").toString().trim().toLowerCase();
+        }
+
+        final reportingTo = applicant['reporting_to'];
+        print("👤 Checking: Applicant(${applicant['name']}) Role($applicantRole) reportingTo($reportingTo) vs Me(${user.id})");
+
+        if (currentUserRole == 'ceo') {
+          // CEO sees HR, Manager, Admin
           return ['hr', 'manager', 'admin'].contains(applicantRole);
-        } else if (role == 'hr') {
-          // HR can approve Employees (even if reporting to someone else)
+        } else if (currentUserRole == 'hr') {
+          // HR sees Employees
           return applicantRole == 'employee';
-        } else if (role == 'manager') {
-          // Manager can only approve if they are the reporting manager
+        } else if (currentUserRole == 'manager') {
+          // Manager sees only their direct reports
           return reportingTo == user.id;
         }
         return false;
       }).toList();
 
       otherLeavesRequest.assignAll(filteredData.cast<Map<String, dynamic>>());
+      print("🚀 Total Visible for $currentUserRole: ${otherLeavesRequest.length}");
     } catch (e) {
       print("Error fetching leave requests: $e");
     } finally {
